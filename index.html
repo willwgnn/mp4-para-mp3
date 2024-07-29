@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP4 to MP3 Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e293b;
+            color: white;
+            text-align: center;
+            padding: 50px;
+        }
+        button {
+            background-color: #3b82f6;
+            color: white;
+            font-size: 16px;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>MP4 to MP3 Converter</h1>
+    <input type="file" id="fileInput" accept=".mp4">
+    <button onclick="convertFile()">Convert</button>
+    <p id="output"></p>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.18.1/full/pyodide.js"></script>
+    <script>
+        async function convertFile() {
+            document.getElementById('output').innerText = "Converting...";
+            const pyodide = await loadPyodide();
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                document.getElementById('output').innerText = "Please select an MP4 file.";
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const arrayBuffer = e.target.result;
+                const uint8Array = new Uint8Array(arrayBuffer);
+
+                // Salvar o arquivo MP4 no sistema de arquivos virtual do Pyodide
+                pyodide.FS.writeFile('/input.mp4', uint8Array);
+
+                // Código Python para converter MP4 para MP3
+                const pythonCode = `
+import moviepy.editor as mp
+video = mp.VideoFileClip("/input.mp4")
+if video.audio is None:
+    raise Exception("The selected video file has no audio.")
+video.audio.write_audiofile("/output.mp3")
+`;
+
+                try {
+                    await pyodide.runPythonAsync(pythonCode);
+                    const mp3ArrayBuffer = pyodide.FS.readFile('/output.mp3').buffer;
+                    const blob = new Blob([mp3ArrayBuffer], { type: 'audio/mp3' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'output.mp3';
+                    a.click();
+                    document.getElementById('output').innerText = "Conversion successful!";
+                } catch (err) {
+                    document.getElementById('output').innerText = "Error: " + err.message;
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    </script>
+</body>
+</html>
