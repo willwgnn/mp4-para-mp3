@@ -23,17 +23,39 @@
         button:hover {
             background-color: #2563eb;
         }
+        .progress-container {
+            width: 100%;
+            background-color: #4b5563;
+            border-radius: 25px;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            width: 0%;
+            height: 30px;
+            background-color: #3b82f6;
+            border-radius: 25px;
+            text-align: center;
+            line-height: 30px;
+            color: white;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <h1>MP4 to MP3 Converter</h1>
     <input type="file" id="fileInput" accept=".mp4">
     <button onclick="convertFile()">Convert</button>
+    <div class="progress-container">
+        <div class="progress-bar" id="progressBar">0%</div>
+    </div>
     <p id="output"></p>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.18.1/full/pyodide.js"></script>
     <script>
         async function convertFile() {
             document.getElementById('output').innerText = "Converting...";
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressBar').innerText = '0%';
+
             const pyodide = await loadPyodide();
             const fileInput = document.getElementById('fileInput');
             const file = fileInput.files[0];
@@ -56,8 +78,23 @@ import moviepy.editor as mp
 video = mp.VideoFileClip("/input.mp4")
 if video.audio is None:
     raise Exception("The selected video file has no audio.")
-video.audio.write_audiofile("/output.mp3")
+audio = video.audio
+audio.write_audiofile("/output.mp3", progress_bar=True)
 `;
+
+                // Intercept progress bar updates
+                pyodide.runPython(`
+def update_progress(current, total):
+    percentage = int((current / total) * 100)
+    js_code = f"document.getElementById('progressBar').style.width = '{percentage}%';"
+    js_code += f"document.getElementById('progressBar').innerText = '{percentage}%';"
+    import js
+    js.eval(js_code)
+
+import moviepy.editor as mp
+from moviepy.tools import subprocess_call
+mp.config.UPDATE_PROGRESS_BAR = update_progress
+                `);
 
                 try {
                     await pyodide.runPythonAsync(pythonCode);
