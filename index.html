@@ -82,20 +82,6 @@ audio = video.audio
 audio.write_audiofile("/output.mp3", progress_bar=True)
 `;
 
-                // Intercept progress bar updates
-                pyodide.runPython(`
-def update_progress(current, total):
-    percentage = int((current / total) * 100)
-    js_code = f"document.getElementById('progressBar').style.width = '{percentage}%';"
-    js_code += f"document.getElementById('progressBar').innerText = '{percentage}%';"
-    import js
-    js.eval(js_code)
-
-import moviepy.editor as mp
-from moviepy.tools import subprocess_call
-mp.config.UPDATE_PROGRESS_BAR = update_progress
-                `);
-
                 try {
                     await pyodide.runPythonAsync(pythonCode);
                     const mp3ArrayBuffer = pyodide.FS.readFile('/output.mp3').buffer;
